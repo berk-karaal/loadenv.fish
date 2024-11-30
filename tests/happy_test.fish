@@ -1,3 +1,5 @@
+source functions/loadenv.fish
+
 loadenv tests/happy.env
 
 @test HELLO $HELLO = World
