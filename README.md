@@ -1,5 +1,7 @@
 # loadenv.fish
 
+[![Tests workflow](https://github.com/berk-karaal/loadenv.fish/actions/workflows/tests.yaml/badge.svg)](https://github.com/berk-karaal/loadenv.fish/actions/workflows/tests.yaml)
+
 `loadenv` is a Fish shell function for managing environment variables from dotenv files.
 
 ```
