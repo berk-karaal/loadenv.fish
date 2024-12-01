@@ -84,7 +84,7 @@ function loadenv
             case load
                 set -gx $key $value
             case unload
-                set -ge $key ''
+                set -e $key
         end
     end
 
