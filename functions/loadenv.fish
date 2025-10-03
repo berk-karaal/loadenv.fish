@@ -1,5 +1,5 @@
 function loadenv
-    argparse h/help print printb U/unload -- $argv
+    builtin argparse h/help print printb U/unload -- $argv
     or return 1
 
     if set -q _flag_help
@@ -18,13 +18,13 @@ function loadenv
         return 0
     end
 
-    if test (count $argv) -gt 1
+    if test (builtin count $argv) -gt 1
         echo "Too many arguments. Only one argument is allowed. Use --help for more information."
         return 1
     end
 
     set -l dotenv_file ".env"
-    if test (count $argv) -eq 1
+    if test (builtin count $argv) -eq 1
         set dotenv_file $argv[1]
     end
 
@@ -44,7 +44,7 @@ function loadenv
 
     set lineNumber 0
 
-    for line in (cat $dotenv_file)
+    for line in (command cat $dotenv_file)
         set lineNumber (math $lineNumber + 1)
 
         # Skip empty lines and comment lines
