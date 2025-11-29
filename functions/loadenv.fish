@@ -87,13 +87,7 @@ function loadenv
             else
                 # Multi-line
                 set -l value_lines
-
-                # Add the first line (if not empty after removing triple quotes)
-                if test -n "$content"
-                    set -a value_lines $content
-                else
-                    set -a value_lines ""
-                end
+                set -a value_lines $content
 
                 # Read subsequent lines until we find closing triple quotes
                 set -l found_closing 0
@@ -102,14 +96,8 @@ function loadenv
                     set -l next_line $all_lines[$lineNumber]
 
                     if string match -qr -- $closing_pattern $next_line
-                        # Found closing triple quotes
                         set found_closing 1
-                        set -l final_part (string sub -e -3 -- $next_line)
-                        if test -n "$final_part"
-                            set -a value_lines $final_part
-                        else
-                            set -a value_lines ""
-                        end
+                        set -a value_lines (string sub -e -3 -- $next_line)
                         break
                     else
                         set -a value_lines $next_line
@@ -122,17 +110,11 @@ function loadenv
                 end
 
                 # Join lines with newline character
-                if test (builtin count $value_lines) -gt 0
-                    # Join array elements with actual newlines using a loop
-                    set -l result $value_lines[1]
-                    for i in (seq 2 (builtin count $value_lines))
-                        # Use string collect with --no-trim-newlines to preserve all newlines
-                        set result (printf '%s\n%s' $result $value_lines[$i] | string collect --no-trim-newlines)
-                    end
-                    set value $result
-                else
-                    set value ""
+                set -l result $value_lines[1]
+                for i in (seq 2 (builtin count $value_lines))
+                    set result (printf '%s\n%s' $result $value_lines[$i] | string collect --no-trim-newlines)
                 end
+                set value $result
             end
         # Existing single-line parsing logic
         else
