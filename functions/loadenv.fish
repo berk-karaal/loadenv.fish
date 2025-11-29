@@ -42,10 +42,14 @@ function loadenv
         set mode unload
     end
 
+    # Read all lines into an array for multi-line support
+    set -l all_lines (command cat $dotenv_file)
+    set -l totalLines (builtin count $all_lines)
     set lineNumber 0
 
-    for line in (command cat $dotenv_file)
+    while test $lineNumber -lt $totalLines
         set lineNumber (math $lineNumber + 1)
+        set -l line $all_lines[$lineNumber]
 
         # Skip empty lines and comment lines
         if string match -qr '^\s*$|^\s*#' $line
@@ -62,18 +66,140 @@ function loadenv
         set -l after_equals_sign (string split -m 1 '=' $line)[2]
 
         set -l value
-        set -l double_quoted_value_regex '^"(.*)"\s*(?:#.*)*$'
-        set -l single_quoted_value_regex '^\'(.*)\'\s*(?:#.*)*$'
-        set -l plain_value_regex '^([^\'"\s]*)\s*(?:#.*)*$'
-        if string match -qgr $double_quoted_value_regex $after_equals_sign
-            set value (string match -gr $double_quoted_value_regex $after_equals_sign)
-        else if string match -qgr $single_quoted_value_regex $after_equals_sign
-            set value (string match -gr $single_quoted_value_regex $after_equals_sign)
-        else if string match -qgr $plain_value_regex $after_equals_sign
-            set value (string match -gr $plain_value_regex $after_equals_sign)
+
+        # Check for triple-quoted multi-line strings (double quotes)
+        if string match -qr '^"""' $after_equals_sign
+            set -l start_line $lineNumber
+            set -l content (string sub -s 4 $after_equals_sign)
+
+            # Check if it closes on the same line
+            if string match -qr -- '"""$' $content
+                # Single-line triple-quoted
+                set value (string sub -e -3 -- $content)
+            else
+                # Multi-line
+                set -l value_lines
+
+                # Add the first line (if not empty after removing """)
+                if test -n "$content"
+                    set -a value_lines $content
+                else
+                    set -a value_lines ""
+                end
+
+                # Read subsequent lines until we find closing """
+                set -l found_closing 0
+                while test $lineNumber -lt $totalLines
+                    set lineNumber (math $lineNumber + 1)
+                    set -l next_line $all_lines[$lineNumber]
+
+                    if string match -qr -- '"""$' $next_line
+                        # Found closing """
+                        set found_closing 1
+                        set -l final_part (string sub -e -3 -- $next_line)
+                        if test -n "$final_part"
+                            set -a value_lines $final_part
+                        else
+                            set -a value_lines ""
+                        end
+                        break
+                    else
+                        set -a value_lines $next_line
+                    end
+                end
+
+                if test $found_closing -eq 0
+                    echo "Error: unclosed triple-quoted string starting at line $start_line"
+                    return 1
+                end
+
+                # Join lines with newline character
+                if test (builtin count $value_lines) -gt 0
+                    # Join array elements with actual newlines using a loop
+                    set -l result $value_lines[1]
+                    for i in (seq 2 (builtin count $value_lines))
+                        # Use string collect with --no-trim-newlines to preserve all newlines
+                        set result (printf '%s\n%s' $result $value_lines[$i] | string collect --no-trim-newlines)
+                    end
+                    set value $result
+                else
+                    set value ""
+                end
+            end
+        # Check for triple-quoted multi-line strings (single quotes)
+        else if string match -qr "^'''" $after_equals_sign
+            set -l start_line $lineNumber
+            set -l content (string sub -s 4 $after_equals_sign)
+
+            # Check if it closes on the same line
+            if string match -qr -- "'''\$" $content
+                # Single-line triple-quoted
+                set value (string sub -e -3 -- $content)
+            else
+                # Multi-line
+                set -l value_lines
+
+                # Add the first line (if not empty after removing ''')
+                if test -n "$content"
+                    set -a value_lines $content
+                else
+                    set -a value_lines ""
+                end
+
+                # Read subsequent lines until we find closing '''
+                set -l found_closing 0
+                while test $lineNumber -lt $totalLines
+                    set lineNumber (math $lineNumber + 1)
+                    set -l next_line $all_lines[$lineNumber]
+
+                    if string match -qr -- "'''\$" $next_line
+                        # Found closing '''
+                        set found_closing 1
+                        set -l final_part (string sub -e -3 -- $next_line)
+                        if test -n "$final_part"
+                            set -a value_lines $final_part
+                        else
+                            set -a value_lines ""
+                        end
+                        break
+                    else
+                        set -a value_lines $next_line
+                    end
+                end
+
+                if test $found_closing -eq 0
+                    echo "Error: unclosed triple-quoted string starting at line $start_line"
+                    return 1
+                end
+
+                # Join lines with newline character
+                if test (builtin count $value_lines) -gt 0
+                    # Join array elements with actual newlines using a loop
+                    set -l result $value_lines[1]
+                    for i in (seq 2 (builtin count $value_lines))
+                        # Use string collect with --no-trim-newlines to preserve all newlines
+                        set result (printf '%s\n%s' $result $value_lines[$i] | string collect --no-trim-newlines)
+                    end
+                    set value $result
+                else
+                    set value ""
+                end
+            end
+        # Existing single-line parsing logic
         else
-            echo "Error: invalid value (line $lineNumber): $line"
-            return 1
+            set -l double_quoted_value_regex '^"(.*)"\s*(?:#.*)*$'
+            set -l single_quoted_value_regex '^\'(.*)\'\s*(?:#.*)*$'
+            set -l plain_value_regex '^([^\'"\s]*)\s*(?:#.*)*$'
+            if string match -qgr $double_quoted_value_regex $after_equals_sign
+                set value (string match -gr $double_quoted_value_regex $after_equals_sign)
+            else if string match -qgr $single_quoted_value_regex $after_equals_sign
+                set value (string match -gr $single_quoted_value_regex $after_equals_sign)
+            else if string match -qgr $plain_value_regex $after_equals_sign
+                set value (string match -gr $plain_value_regex $after_equals_sign)
+            else
+                echo "Error: invalid value (line $lineNumber): $line"
+                return 1
+            end
         end
 
         switch $mode
