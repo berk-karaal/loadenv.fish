@@ -67,93 +67,42 @@ function loadenv
 
         set -l value
 
-        # Check for triple-quoted multi-line strings (double quotes)
+        # Check for triple-quoted multi-line strings (both """ and ''')
+        set -l closing_pattern ""
         if string match -qr '^"""' $after_equals_sign
-            set -l start_line $lineNumber
-            set -l content (string sub -s 4 $after_equals_sign)
-
-            # Check if it closes on the same line
-            if string match -qr -- '"""$' $content
-                # Single-line triple-quoted
-                set value (string sub -e -3 -- $content)
-            else
-                # Multi-line
-                set -l value_lines
-
-                # Add the first line (if not empty after removing """)
-                if test -n "$content"
-                    set -a value_lines $content
-                else
-                    set -a value_lines ""
-                end
-
-                # Read subsequent lines until we find closing """
-                set -l found_closing 0
-                while test $lineNumber -lt $totalLines
-                    set lineNumber (math $lineNumber + 1)
-                    set -l next_line $all_lines[$lineNumber]
-
-                    if string match -qr -- '"""$' $next_line
-                        # Found closing """
-                        set found_closing 1
-                        set -l final_part (string sub -e -3 -- $next_line)
-                        if test -n "$final_part"
-                            set -a value_lines $final_part
-                        else
-                            set -a value_lines ""
-                        end
-                        break
-                    else
-                        set -a value_lines $next_line
-                    end
-                end
-
-                if test $found_closing -eq 0
-                    echo "Error: unclosed triple-quoted string starting at line $start_line"
-                    return 1
-                end
-
-                # Join lines with newline character
-                if test (builtin count $value_lines) -gt 0
-                    # Join array elements with actual newlines using a loop
-                    set -l result $value_lines[1]
-                    for i in (seq 2 (builtin count $value_lines))
-                        # Use string collect with --no-trim-newlines to preserve all newlines
-                        set result (printf '%s\n%s' $result $value_lines[$i] | string collect --no-trim-newlines)
-                    end
-                    set value $result
-                else
-                    set value ""
-                end
-            end
-        # Check for triple-quoted multi-line strings (single quotes)
+            set closing_pattern '"""$'
         else if string match -qr "^'''" $after_equals_sign
+            set closing_pattern "'''\$"
+        end
+
+        # Process triple-quoted strings (common logic for both types)
+        if test -n "$closing_pattern"
             set -l start_line $lineNumber
             set -l content (string sub -s 4 $after_equals_sign)
 
             # Check if it closes on the same line
-            if string match -qr -- "'''\$" $content
+            if string match -qr -- $closing_pattern $content
                 # Single-line triple-quoted
                 set value (string sub -e -3 -- $content)
             else
                 # Multi-line
                 set -l value_lines
 
-                # Add the first line (if not empty after removing ''')
+                # Add the first line (if not empty after removing triple quotes)
                 if test -n "$content"
                     set -a value_lines $content
                 else
                     set -a value_lines ""
                 end
 
-                # Read subsequent lines until we find closing '''
+                # Read subsequent lines until we find closing triple quotes
                 set -l found_closing 0
                 while test $lineNumber -lt $totalLines
                     set lineNumber (math $lineNumber + 1)
                     set -l next_line $all_lines[$lineNumber]
 
-                    if string match -qr -- "'''\$" $next_line
-                        # Found closing '''
+                    if string match -qr -- $closing_pattern $next_line
+                        # Found closing triple quotes
                         set found_closing 1
                         set -l final_part (string sub -e -3 -- $next_line)
                         if test -n "$final_part"
