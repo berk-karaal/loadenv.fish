@@ -42,7 +42,6 @@ function loadenv
         set mode unload
     end
 
-    # Read all lines into an array for multi-line support
     set -l all_lines (command cat $dotenv_file)
     set -l totalLines (builtin count $all_lines)
     set lineNumber 0
@@ -61,7 +60,6 @@ function loadenv
             return 1
         end
 
-        # Parse key and value
         set -l key (string split -m 1 '=' $line)[1]
         set -l after_equals_sign (string split -m 1 '=' $line)[2]
 
@@ -75,12 +73,12 @@ function loadenv
             set closing_pattern "'''\$"
         end
 
-        # Process triple-quoted strings (common logic for both types)
         if test -n "$closing_pattern"
+            # Handle triple-quoted strings
+
             set -l start_line $lineNumber
             set -l content (string sub -s 4 $after_equals_sign)
 
-            # Check if it closes on the same line
             if string match -qr -- $closing_pattern $content
                 # Single-line triple-quoted
                 set value (string sub -e -3 -- $content)
@@ -109,15 +107,15 @@ function loadenv
                     return 1
                 end
 
-                # Join lines with newline character
                 set -l result $value_lines[1]
                 for i in (seq 2 (builtin count $value_lines))
                     set result (printf '%s\n%s' $result $value_lines[$i] | string collect --no-trim-newlines)
                 end
                 set value $result
             end
-        # Existing single-line parsing logic
         else
+            # Handle single line values
+
             set -l double_quoted_value_regex '^"(.*)"\s*(?:#.*)*$'
             set -l single_quoted_value_regex '^\'(.*)\'\s*(?:#.*)*$'
             set -l plain_value_regex '^([^\'"\s]*)\s*(?:#.*)*$'
