@@ -59,3 +59,35 @@ Unexport all keys defined in the dotenv file:
 $ loadenv --unload
 ```
 
+### Example dotenv file
+
+```
+# Sample dotenv file (.env.example)
+
+# This is a comment
+KEY1=value1
+
+QUOTED_KEY="This is a quoted value" # inline comment
+SINGLE_QUOTED_KEY='Single quoted value'
+
+# Support for multi-line values
+MULTI_LINE_KEY="""This is a multi-line
+value that spans several lines.
+
+1
+2
+3"""
+```
+
+```console
+$ loadenv .env.example --printb
+[KEY1=value1]
+[QUOTED_KEY=This is a quoted value]
+[SINGLE_QUOTED_KEY=Single quoted value]
+[MULTI_LINE_KEY=This is a multi-line
+value that spans several lines.
+
+1
+2
+3]
+```
