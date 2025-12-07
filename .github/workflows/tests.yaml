@@ -15,8 +15,11 @@ on:
 
 jobs:
   run_tests:
-    name: Run tests
+    name: Run tests (Fish ${{ matrix.fish-version }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        fish-version: [3, 4]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,7 +28,7 @@ jobs:
 
       - name: Install Fish
         run: |
-          sudo apt-add-repository -yn ppa:fish-shell/release-3
+          sudo apt-add-repository -yn ppa:fish-shell/release-${{ matrix.fish-version }}
           sudo apt-get update
           sudo apt-get install -y fish
 
